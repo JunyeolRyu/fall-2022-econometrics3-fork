@@ -1,0 +1,90 @@
+
+Pkg.add("JLD2")
+Pkg.add("Random")
+Pkg.add("LinearAlgebra")
+Pkg.add("Statistics")
+Pkg.add("CSV")
+Pkg.add("DataFrames")
+Pkg.add("FreqTables")
+Pkg.add("Distributions")
+
+
+#1(a)
+using Random
+using Distribution
+Random.seed!(1234)
+#1(a-1)
+A = rand(Uniform(-5, 10), 10, 7)
+#1(a-ii)
+B = rand(Normal(-2,15), 10, 7)
+#1(a-iii)
+C = [A[1:5, 1:5] B[1:5, 6:7]]
+#1(a-iv)
+D=copy(A)
+D[D.>0] .=0
+
+#1(b)
+length(A)
+
+#1(c)
+length(setdiff(D))
+
+#1(d)
+E = reshape(B, 70, 1)
+
+#1(e)
+F = cat([A], [B], dims=3)
+
+#1(f)
+F = permutedims(F, [3, 1, 2])
+
+#1(g)
+G=kron(B, C)
+* when type G=kron(C, F), it shows error
+
+#1(h)
+using JLD2
+file = jldopen("/Users/junyeolryu/desktop/Econometrics3/HW/PS1/matrixpractice.jld")
+write(file, "A", A)
+write(file, "B", B)
+write(file, "C", C)
+write(file, "D", D)
+write(file, "E", E)
+write(file, "F", F)
+write(file, "G", G)
+close(file)
+
+#1(i)
+file = jldopen("/Users/junyeolryu/desktop/Econometrics3/HW/PS1/firstmatrix.jld")
+write(file, "A", A)
+write(file, "B", B)
+write(file, "C", C)
+write(file, "D", D)
+
+#1(j)
+using DataFrames
+using CSV
+data=convert(DataFrame, C)
+CSV.write("/Users/junyeolryu/desktop/Econometrics3/HW/PS1/Cmatrix.jld")
+
+#1(k)
+data=convert(DataFrame, D)
+CSV.write("/Users/junyeolryu/desktop/Econometrics3/HW/PS1/Dmatrix.dat")
+
+#1(l)
+function q1()
+Random.seed!(1234)
+A = rand(Uniform(-5, 10), 10, 7)
+B = rand(Normal(-2,15), 10, 7)
+C = [A[1:5, 1:5] B[1:5, 6:7]]
+D=copy(A)
+D[D.>0] .=0
+          return A, B, C, D
+end
+
+A, B, C, D = q1()
+
+
+#2(a)
+dot(A, B)
+AB2 = dot(A, B)
