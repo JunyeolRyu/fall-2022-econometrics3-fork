@@ -1,0 +1,125 @@
+junyeol ps4
+
+using Random
+using LinearAlgebra
+using Statistics
+using Optim
+using DataFrames
+using CSV
+using HTTP
+using GLM
+using FreqTables
+using ForwardDiff # for bonus at the very end
+
+
+<question 1>_refer to p3 Dr.ransom's solution
+    using DataFrames
+    using CSV
+    using HTTP
+    url = "https://raw.githubusercontent.com/OU-PhD-Econometrics/fall-2022/master/ProblemSets/PS4-mixture/nlsw88t.csv"
+    df = CSV.read(HTTP.get(url).body, DataFrame)
+    X = [df.age df.white df.collgrad]
+    Z = hcat(df.elnwage1, df.elnwage2, df.elnwage3, df.elnwage4, df.elnwage5, df.elnwage6, df.elnwage7, df.elnwage8)
+    y = df.occupation
+    
+    function mlogit(beta, X, Z, y)
+        
+        alpha = beta[1:end-1]
+        gamma = beta[end]
+        K = size(X,2)
+        J = length(unique(y))
+        N = length(y)
+        bigY = zeros(N,J)
+        for j=1:J
+            bigY[:,j] = y.==j
+        end
+        bigAlpha = [reshape(alpha,K,J-1) zeros(K)]
+        
+        T = promote_type(eltype(X),eltype(beta))
+        num   = zeros(T,N,J)
+        dem   = zeros(T,N)
+        for j=1:J
+            num[:,j] = exp.(X*bigAlpha[:,j] .+ (Z[:,j] .- Z[:,J])*gamma)
+            dem .+= num[:,j]
+        end
+        
+        P = num./repeat(dem,1,J)
+        
+        loglike = -sum( bigY.*log.(P) )
+        
+        return loglike
+    end
+    startvals = [2*rand(7*size(X,2)).-1; .1]
+    td = TwiceDifferentiable(beta -> mlogit(beta, X, Z, y), startvals; autodiff = :forward)
+
+    beta_hat_optim_ad = optimize(td, startvals, LBFGS(), Optim.Options(g_tol = 1e-5, iterations=100_000, show_trace=true, show_every=50))
+    beta_hat_mle_ad = beta_hat_optim_ad.minimizer
+
+    H  = Optim.hessian!(td, beta_hat_mle_ad)
+    beta_hat_mle_ad_se = sqrt.(diag(inv(H)))
+    println("logit estimates with Z")
+    println([beta_hat_mle_ad beta_hat_mle_ad_se])
+
+
+
+<question 2>
+it makes more sense than gamma in PS3. 
+Because in panel data, we can control time-invariant foctors and panel data can handle omitted variable.
+So, we can get efficient esimator.
+
+
+
+
+<question3-a>
+using Distributions
+include("lgwt.jl") 
+d = Normal(0,1) 
+
+nodes, weights = lgwt(7,-4,4)
+sum(weights.*pdf.(d,nodes))
+sum(weights.*nodes.*pdf.(d,nodes))
+
+
+
+<question4>_source_ https://github.com/johnmyleswhite/julia_tutorials/blob/master/Statistics%20in%20Julia%20-%20Maximum%20Likelihood%20Estimation.ipynb
+I'm trying to solve optimizing the LL function. 
+But, I'm struggling.
+
+ 
+   function mlogit(beta, Z, X, y)
+        
+        alpha = beta[1:end-1]
+        gamma = beta[end]
+        K = size(X,2)
+        J = length(unique(y))
+        N = length(y)
+        bigY = zeros(N,J)
+        for j=1:J
+            bigY[:,j] = y.==j
+        end
+        bigAlpha = [reshape(alpha,K,J-1) zeros(K)]
+        
+        T = promote_type(eltype(X),eltype(beta))
+        num   = zeros(T,N,J)
+        dem   = zeros(T,N)
+        for j=1:J
+            num[:,j] = exp.(X*bigAlpha[:,j] .+ (Z[:,j] .- Z[:,J])*gamma)
+            dem .+= num[:,j]
+        end
+        
+        P = num./repeat(dem,1,J)
+        
+        loglike = -sum( bigY.*log.(P) )
+        
+        return loglike
+
+    end
+
+
+function loglikelihood (beta, Z, X, y)
+    loglikelihood = mlogit
+    
+    for j=1:J
+
+    for t=1:T
+    for i=1:N
