@@ -1,0 +1,192 @@
+# Q1.
+using DataFrames
+using CSV
+using HTTP
+using Random
+using LinearAlgebra
+using Statistics
+using Optim
+using DataFramesMeta
+using GLM
+
+url = "https://raw.githubusercontent.com/OU-PHD-Econometrics/fall-2022/master/ProblemSets/PS5-ddc/busdataBeta0.csv"
+df = CSV.read(HTTP.get(url).body, DataFrame)
+
+println(size(df))
+describe(df)
+names(df)
+
+
+df = @transform(df, bus_id = 1:size(df,1))
+dfy = @select(df, :bus_id,:Y1,:Y2,:Y3,:Y4,:Y5,:Y6,:Y7,:Y8,:Y9,:Y10,:Y11,:Y12,:Y13,:Y14,:Y15,:Y16,:Y17,:Y18,:Y19,:Y20,:RouteUsage,:Branded)
+dfy_long = DataFrames.stack(dfy, Not([:bus_id,:RouteUsage,:Branded]))
+rename!(dfy_long, :value => :Y)
+dfy_long = @transform(dfy_long, time = kron(collect([1:20]...),ones(size(df,1))))
+select!(dfy_long, Not(:variable))
+
+dfx = @select(df, :bus_id,:Odo1,:Odo2,:Odo3,:Odo4,:Odo5,:Odo6,:Odo7,:Odo8,:Odo9,:Odo10,:Odo11,:Odo12,:Odo13,:Odo14,:Odo15,:Odo16,:Odo17,:Odo18,:Odo19,:Odo20)
+dfx_long = DataFrames.stack(dfx, Not([:bus_id]))
+rename!(dfx_long, :value => :Odometer)
+dfx_long = @transform(dfx_long, time = kron(collect([1:20]...),ones(size(df,1))))
+select!(dfx_long, Not(:variable))
+
+df_long = leftjoin(dfy_long, dfx_long, on = [:bus_id,:time])
+sort!(df_long,[:bus_id,:time])
+
+d1f = sort!(df_long,[:bus_id,:time])
+
+# d1f = "long panel format"
+
+
+
+
+
+#Q2.source: 
+# https://www.machinelearningplus.com/julia/logistic-regression-in-julia-practical-guide-with-examples/
+# https://juliastats.org/GLM.jl/v0.11/#Methods-applied-to-fitted-models-1
+
+
+logit = glm(@formula(Y ~ Branded + Odometer), d1f, Binomial(), LogitLink())
+println(logit)
+
+
+
+
+
+
+
+# Q3.
+
+# (a)
+using DataFrames
+using CSV
+using HTTP
+using Random
+using LinearAlgebra
+using Statistics
+using Optim
+using DataFramesMeta
+using GLM
+
+url = "https://raw.githubusercontent.com/OU-PHD-Econometrics/fall-2022/master/ProblemSets/PS5-ddc/busdata.csv"
+ddf = CSV.read(HTTP.get(url).body, DataFrame)
+
+println(size(ddf))
+describe(ddf)
+names(ddf)
+
+
+Y = Matrix(ddf[:,[:Y1,:Y2,:Y3,:Y4,:Y5,:Y6,:Y7,:Y8,:Y9,:Y10,:Y11,:Y12,:Y13,:Y14,:Y15,:Y16,:Y17,:Y18,:Y19,:Y20]])
+Odo = Matrix(ddf[:,[:Odo1,:Odo2,:Odo3,:Odo4,:Odo5,:Odo6,:Odo7,:Odo8,:Odo9,:Odo10,:Odo11,:Odo12,:Odo13,:Odo14,:Odo15,:Odo16,:Odo17,:Odo18,:Odo19,:Odo20]])
+Xst = Matrix(ddf[:,[:Xst1,:Xst2,:Xst3,:Xst4,:Xst5,:Xst6,:Xst7,:Xst8,:Xst9,:Xst10,:Xst11,:Xst12,:Xst13,:Xst14,:Xst15,:Xst16,:Xst17,:Xst18,:Xst19,:Xst20]])
+
+Zst1 = Vector(ddf[:,:Zst])
+RouteUsage1 = Vector(ddf[:,:RouteUsage])
+Branded1 = Vector(ddf[:,:Branded])
+
+
+# (b)
+zval,zbin,xval,xbin,xtran = create_grids()
+function create_grids()
+
+    function xgrid(theta,xval)
+        N      = length(xval)
+        xub    = vcat(xval[2:N],Inf)
+        xtran1  = zeros(N,N)
+        xtran1c = zeros(N,N)
+        lcdf   = zeros(N)
+        for i=1:length(xval)
+            xtran1[:,i]   = (xub[i] .>= xval).*(1 .- exp.(-theta*(xub[i] .- xval)) .- lcdf)
+            lcdf        .+= xtran1[:,i]
+            xtran1c[:,i] .+= lcdf
+        end
+        return xtran1, xtran1c
+    end
+
+    zval   = collect([.25:.01:1.25]...)
+    zbin   = length(zval)
+    xval   = collect([0:.125:25]...)
+    xbin   = length(xval)
+    tbin   = xbin*zbin
+    xtran  = zeros(tbin,xbin)
+    xtranc = zeros(xbin,xbin,xbin)
+    for z=1:zbin
+        xtran[(z-1)*xbin+1:z*xbin,:],xtranc[:,:,z] = xgrid(zval[z],xval)
+    end
+
+    return zval,zbin,xval,xbin,xtran
+end
+
+
+
+
+
+
+# (c) potential state
+# zval = RouteUsage1
+# xval = Odo
+
+FV = zeros(N, 2, T+1)
+# N = the number of rows of xtran
+# 2 = possible outcome (Branded1)
+
+#Backward
+   for t = T:-1:1
+
+#possible ourcome Branded
+      for b = 0:1
+
+#Routeusage state
+         for z = (1:zbin)
+
+#Odo state 
+            for x = (1:xbin) 
+                
+                u1 = theta[1] + theta[2] *xval[j] + theta[3]*b
+                v1 = u1 + FV1
+                u0 = 0
+                v0 = u0 + FV0
+                row = x + (z-1) * xbin
+                xtran[row, :] *FV[(z-1)*xbin+1:z*xbin,b+1,t+1] ### I couldn't fully understand this line
+                FV(row,b+1,t) = 0.9*log(exp(v0) + exp(v1))
+
+
+end
+end
+end
+end
+
+
+
+# (d) construct log likelihood   &   actual data
+
+LL = 0
+Nbus = size(Y, 1)
+   for i = 1:Nbus
+      for t = 1:T
+                
+                row1 = xst[i,t]+ (zst[i]-1)*xbin
+                row0 = 1 + (zst[i]-1) *xbin
+                (xtran[row1,:].-xtran[row0,:])'*FV[row0:row0+xbin-1,B[i]+1,t+1]  ### I couldn't fully understand this line
+                v1 = u1 + FV1
+                v0 = 0 + FV0
+                p1 = exp(v1)/exp(v0)+exp(v1)
+                p0 = 1-p1
+   LL- = (Y[i,t]==1)*log(p1) - (Y[i,t]==0)*log(p0)
+end
+end
+return LL-
+
+
+
+
+
+
+
+# (e) source: https://julia.quantecon.org/more_julia/optimization_solver_packages.html
+
+using Optim
+
+optim = optimize(LL-, LBFGS())
+println(optim)
+
