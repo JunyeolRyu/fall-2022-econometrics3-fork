@@ -179,7 +179,7 @@ P = [reshape(N,J)]
 Y = zeros(N,1)
    for i=1:J
      for k=j:J
-   Y[i] = [P[i,k] > ε[i,t]]
+   Y[i] = sum(1*(sum(P[i,k]) > ε[i]))
 
 
 end
