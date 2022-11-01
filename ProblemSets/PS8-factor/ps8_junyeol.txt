@@ -1,0 +1,112 @@
+using HTTP
+using Optim
+using GLM
+using LinearAlgebra
+using Random
+using Statistics
+using DataFrames
+using DataFramesMeta
+using CSV
+url = "https://raw.githubusercontent.com/OU-PhD-Econometrics/fall-2022/master/ProblemSets/PS8-factor/nlsy.csv"
+df = CSV.read(HTTP.get(url).body, DataFrame)
+
+names(df)
+describe(df)
+
+#####1. linear regression
+ps8_lm=lm(@formula(logwage ~ black + hispanic + female + schoolt + grad4yr + gradHS), df)
+println(ps8_lm)
+
+
+
+#####2. correlation among the six asvab variables
+
+X = [df.black df.hispanic df.female df.schoolt df.grad4yr df.gradHS]
+cm = cor(Matrix(X))
+println(cm)
+
+
+#####3. 
+ps8_2_lm=lm(@formula(logwage ~ black + hispanic + female + schoolt + grad4yr + gradHS +asvabAR + asvabCS + asvabMK + asvabNO + asvabPC + asvabWK), df)
+println(ps8_2_lm)
+
+XX = [df.asvabAR  df.asvabCS  df.asvabMK  df.asvabNO  df.asvabPC  df.asvabWK]
+cm2 = cor(Matrix(XX))
+
+XXX = X = [df.black df.hispanic df.female df.schoolt df.grad4yr df.gradHS df.asvabAR  df.asvabCS  df.asvabMK  df.asvabNO  df.asvabPC  df.asvabWK]
+cm3 = cor(Matrix(XXX))
+
+##Putting correlated variables into the model causes multicollinearity problems.
+
+
+#####4. 
+
+using MultivariateStates
+M =fit(PCA, asvabMat'; maxoutdim=1)
+
+### In my data coding, asvabMat -> XX
+M =fit(PCA, XX'; maxoutdim=1)
+asvabMat = (XX)
+asvabPCA = MultivariateStats.transform(M, asvabMat')
+
+ps8_3_lm=lm(@formula(logwage ~ black + hispanic + female + schoolt + grad4yr + asvabPCA'), df)
+println(ps8_3_lm)
+
+
+
+#####5. 
+MM =fit(FactorAnalysis, asvabMat'; maxoutdim=1)
+
+asvabFac = MultivariateStats.transform(MM, asvabMat')
+
+ps8_4_lm=lm(@formula(logwage ~ black + hispanic + female + schoolt + grad4yr + asvabFac'), df)
+println(ps8_4_lm)
+
+
+
+#####6. 
+##I'm struggling with this question.
+##And I'm still thinking about what the professor told me.
+##First of all, I wrote down what I learned from the meeting.
+
+XA =[ones(size(df,1),1) df.black df.hispanic df.female]
+XW =[ones(size(df,1),1) df.black df.hispanic df.female df.schoolt df.grad4yr df.gradHS ]
+y = df.logwage
+
+function norm-mle(theta, y, X)
+   theta[1:end-1] = beta
+   theta[end] = alpha
+   like = -sum(log.(pdf.(Normal(0,sigma), y[j]-X*beta[j]))
+reture like
+end
+
+
+function joint-ols(theta, y, XA, XW)
+J = size(X,2)-1
+KA = size(XA, 2)
+KW = size(XW,2)
+for j = 1:J
+theta[(j-1)*KA+1: J*KA] = beta[j]
+end
+theta[(j*KA+1: J*KA+KW] = beta[w]
+theta[end-(J-1): end-1] = sigma[j]
+theta[end] = theta[w]
+like = zeros(N, J+1)
+for j = 1:J
+like[:,j] = log(pdf.(Normal(o,sigma), y[j] - XA*beta[j]))
+end
+like[:,end] = log.(pdf.(Normal(0,sigma), y[j]-X*beta[j])
+sum_like = -sum(like)
+return sum_like
+end
+
+
+
+
+
+
+
+
+
+
+
